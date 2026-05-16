@@ -7,9 +7,31 @@ npm ci
 npm run build
 ```
 
-Upload the contents of `dist/` to your IONOS static host (or connect the GitHub repo to IONOS “Deploy now” so it runs this for you).
+## GitHub Pages (recommended) + custom domain
 
-## SPA fallback (required)
+The repo includes [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml): on every push to `main`, it builds and publishes `dist/` to GitHub Pages.
+
+1. **Repository → Settings → Pages**
+   - **Build and deployment:** Source = **GitHub Actions** (not “Deploy from a branch”).
+2. **Secrets and variables → Actions:** add repository secrets used at build time (same values you would put in `.env.production`):
+   - `VITE_WORKER_API_BASE`
+   - `VITE_TURNSTILE_SITE_KEY`
+3. **Custom domain:** [public/CNAME](public/CNAME) contains `pokemonprimalawakening.com` and is copied into `dist/` on build so Pages keeps the apex host. In **Pages** settings, set **Custom domain** to `pokemonprimalawakening.com` and enable **Enforce HTTPS** after DNS verifies.
+4. **DNS (at your DNS host, e.g. Cloudflare):** point the apex at GitHub Pages. GitHub documents current IPs in [Managing a custom domain](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site#configuring-an-apex-domain). Typically **four A records** for `@` to `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`. For `www`, use a **CNAME** to `<your-username>.github.io` (or your org’s `.github.io` host), unless your DNS provider requires flattening.
+
+After DNS propagates, confirm **Pages** shows “DNS check successful.” Update **Cloudflare Worker** `FRONTEND_ORIGIN` / Turnstile / PayPal allowlists to `https://pokemonprimalawakening.com` as today.
+
+### SPA on GitHub Pages
+
+GitHub Pages does not use Apache rewrite rules. The Vite config copies `index.html` to **`404.html`** after each production build so client routes (`/home`, `/shop`, etc.) load the app on refresh or direct links (standard SPA workaround for Pages).
+
+---
+
+## IONOS / other static hosts (optional)
+
+Upload the contents of `dist/` to your static host (or connect the repo to IONOS “Deploy now” so it runs the build for you).
+
+## SPA fallback (Apache and similar)
 
 Client routes include `/home`, `/shop`, `/faq`, `/join`, `/about`, `/admin`, and `/thank-you`. The server must serve `index.html` for unknown paths so refresh/deep links work.
 
@@ -67,11 +89,15 @@ Local API + Vite: in one terminal `npm run worker:dev` (Worker on `http://127.0.
 1. In **Turnstile**, add your production hostname(s) for the checkout widget.
 2. Update **PayPal** return allowlists if needed; returns use `${FRONTEND_ORIGIN}/thank-you`.
 
-## Cloudflare DNS (apex + www)
+## Cloudflare in front of GitHub Pages (optional)
 
-1. **A/AAAA or CNAME** for `pokemonprimalawakening.com` (and `www` if used) pointing at IONOS.
+If DNS for `pokemonprimalawakening.com` points at GitHub’s Pages IPs, Cloudflare can still proxy the site (**orange cloud**). Use **SSL/TLS = Full (strict)** and ensure GitHub Pages has completed certificate provisioning for the custom domain. Pick a **canonical host** (apex vs `www`) and add a **Redirect rule** so the other host redirects (avoid loops).
+
+If you use **IONOS** (or another origin) instead of GitHub Pages for the HTML:
+
+1. **A/AAAA or CNAME** for `pokemonprimalawakening.com` (and `www` if used) pointing at the host.
 2. **SSL/TLS:** Full (strict) once the origin certificate is valid.
-3. Pick a **canonical host** (apex vs `www`) and add a **Redirect rule** so the other redirects (avoid loops).
+3. Same canonical-host redirect guidance as above.
 4. **Optional vanity hosts:** Bulk Redirects such as `https://shop.pokemonprimalawakening.com/*` → `https://pokemonprimalawakening.com/shop` (301).
 
 ## After go-live: `rovaultx.github.io`
