@@ -25,7 +25,7 @@ export function SiteLayout() {
             />
             <span className="site-brand-text">
               <span className="site-brand-title">Primal Awakening</span>
-              <span className="site-brand-sub">Roblox · Pokémon Brick Bronze</span>
+              <span className="site-brand-sub">Roblox · Pokemon Brick Bronze</span>
             </span>
           </NavLink>
           <nav className="site-nav" aria-label="Primary">
@@ -57,8 +57,8 @@ export function SiteLayout() {
       </main>
       <footer className="site-footer">
         <p>
-          Pokémon and Pokémon character names are trademarks of Nintendo, Game Freak, and The Pokémon Company.
-          Primal Awakening is a <strong>Pokémon Brick Bronze Reimagination</strong> and is not affiliated with those companies or with Roblox
+          Pokemon and Pokemon character names are trademarks of Nintendo, Game Freak, and The Pokemon Company.
+          Primal Awakening is a <strong>Pokemon Brick Bronze Reimagination</strong> and is not affiliated with those companies or with Roblox
           Corporation.
         </p>
       </footer>

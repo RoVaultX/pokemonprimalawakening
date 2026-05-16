@@ -13,9 +13,9 @@ export function HomePage() {
           <div className="page-hero-bg" style={{ backgroundImage: `url(${art.file})` }} aria-hidden />
         ) : null}
         <div className="page-hero-inner">
-          <h1>Pokémon Primal Awakening</h1>
+          <h1>Pokemon Primal Awakening</h1>
           <p className="lede">
-            A Pokémon Brick Bronze adventure on Roblox. Explore, battle, and build your team with a community that loves the game!
+            A Pokemon Brick Bronze adventure on Roblox. Explore, battle, and build your team with a community that loves the game!
           </p>
           <div className="cta-row">
             <Link to="/join" className="btn btn-primary">
@@ -28,7 +28,7 @@ export function HomePage() {
               RoVaultX Shop
             </Link>
           </div>
-          <p className="sprite-marquee-label">Featured Pokémon</p>
+          <p className="sprite-marquee-label">Featured Pokemon</p>
           <SpriteMarquee sprites={homeShowcaseSprites} durationSec={60} />
         </div>
       </section>

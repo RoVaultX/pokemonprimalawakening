@@ -29,6 +29,7 @@ jobs:
         env:
           VITE_WORKER_API_BASE: ${{ secrets.VITE_WORKER_API_BASE }}
           VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+          VITE_SITE_ORIGIN: ${{ secrets.VITE_SITE_ORIGIN }}
           # Omit VITE_BASE_PATH for site at domain root (custom domain or username.github.io).
       - uses: actions/upload-pages-artifact@v3
         with:
