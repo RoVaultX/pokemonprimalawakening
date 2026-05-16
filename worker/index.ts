@@ -165,14 +165,33 @@ async function isAuthorizedAdmin(request: Request, env: Env): Promise<boolean> {
   return Boolean(verified?.exp && verified.role === "admin" && Date.now() / 1000 <= verified.exp);
 }
 
-function jsonResponse(body: unknown, status = 200, origin?: string): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json",
-      ...(origin ? { "access-control-allow-origin": origin } : {}),
-    },
-  });
+/** Comma-separated list in `FRONTEND_ORIGIN`, e.g. `https://a.com,https://www.a.com`. */
+function parseAllowedFrontendOrigins(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+/** First origin is used for PayPal return URLs and redirects (canonical public site). */
+function primaryFrontendOrigin(allowedOrigins: string[]): string {
+  return allowedOrigins[0] ?? "";
+}
+
+/** Reflect allowed request `Origin` for CORS (must match the browser tab, not a fixed second domain). */
+function reflectCorsOrigin(requestOrigin: string, allowedOrigins: string[]): string | undefined {
+  return requestOrigin && allowedOrigins.includes(requestOrigin) ? requestOrigin : undefined;
+}
+
+function jsonResponse(body: unknown, status = 200, corsReflectOrigin?: string): Response {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (corsReflectOrigin) {
+    headers["access-control-allow-origin"] = corsReflectOrigin;
+    headers.vary = "Origin";
+  }
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 function isRateLimited(ip: string): boolean {
@@ -259,25 +278,31 @@ export default {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") ?? "";
     const requestIp = normalizeIpAddress(request.headers.get("CF-Connecting-IP"));
-    const allowedOrigin = env.FRONTEND_ORIGIN;
+    const allowedOrigins = parseAllowedFrontendOrigins(env.FRONTEND_ORIGIN);
+    const canonicalOrigin = primaryFrontendOrigin(allowedOrigins);
+    const corsOrigin = reflectCorsOrigin(origin, allowedOrigins);
 
     if (request.method === "OPTIONS") {
+      if (!origin || !allowedOrigins.includes(origin)) {
+        return new Response(null, { status: 403 });
+      }
       return new Response(null, {
         status: 204,
         headers: {
-          "access-control-allow-origin": allowedOrigin,
+          "access-control-allow-origin": origin,
           "access-control-allow-methods": "POST, GET, PUT, OPTIONS",
           "access-control-allow-headers": "authorization, content-type",
+          vary: "Origin",
         },
       });
     }
 
     if (url.pathname === "/api/validate-promo" && request.method === "POST") {
-      if (origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (!allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
       if (isRateLimited(getRateLimitKey(requestIp))) {
-        return jsonResponse({ error: "Too many requests. Try again later." }, 429, allowedOrigin);
+        return jsonResponse({ error: "Too many requests. Try again later." }, 429, corsOrigin);
       }
 
       const payload = (await request.json()) as {
@@ -286,13 +311,13 @@ export default {
       };
       const code = normalizePromoCode(payload.code ?? "");
       if (!code || !payload.suggestedDonation || !Number.isFinite(payload.suggestedDonation)) {
-        return jsonResponse({ error: "Invalid request body." }, 400, allowedOrigin);
+        return jsonResponse({ error: "Invalid request body." }, 400, corsOrigin);
       }
 
       const store = await readPromoStore(env);
       const promo = store.promos.find((item) => item.code === code);
       if (!promo) {
-        return jsonResponse({ valid: false }, 200, allowedOrigin);
+        return jsonResponse({ valid: false }, 200, corsOrigin);
       }
 
       return jsonResponse(
@@ -303,23 +328,23 @@ export default {
           finalDonation: calculateDiscountedDonation(payload.suggestedDonation, promo.discountPercent),
         },
         200,
-        allowedOrigin,
+        corsOrigin,
       );
     }
 
     if (url.pathname === "/api/stock" && request.method === "GET") {
-      if (origin && origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (origin && !allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
-      return jsonResponse(await readStockStore(env), 200, allowedOrigin);
+      return jsonResponse(await readStockStore(env), 200, corsOrigin);
     }
 
     if (url.pathname === "/api/create-handoff" && request.method === "POST") {
-      if (origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (!allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
       if (isRateLimited(getRateLimitKey(requestIp))) {
-        return jsonResponse({ error: "Too many requests. Try again later." }, 429, allowedOrigin);
+        return jsonResponse({ error: "Too many requests. Try again later." }, 429, corsOrigin);
       }
 
       const payload = (await request.json()) as {
@@ -337,22 +362,22 @@ export default {
         !payload.suggestedDonation ||
         !payload.paymentProvider
       ) {
-        return jsonResponse({ error: "Invalid request body." }, 400, allowedOrigin);
+        return jsonResponse({ error: "Invalid request body." }, 400, corsOrigin);
       }
       if (payload.paymentProvider !== "paypal" && payload.paymentProvider !== "stripe") {
-        return jsonResponse({ error: "Invalid payment provider." }, 400, allowedOrigin);
+        return jsonResponse({ error: "Invalid payment provider." }, 400, corsOrigin);
       }
 
       if (payload.promoCode) {
         const originalSuggestedDonation = Number(payload.originalSuggestedDonation);
         if (!Number.isFinite(originalSuggestedDonation) || originalSuggestedDonation <= 0) {
-          return jsonResponse({ error: "Invalid promo request." }, 400, allowedOrigin);
+          return jsonResponse({ error: "Invalid promo request." }, 400, corsOrigin);
         }
         const store = await readPromoStore(env);
         const promo = store.promos.find((item) => item.code === normalizePromoCode(payload.promoCode ?? ""));
         const expectedDonation = promo ? calculateDiscountedDonation(originalSuggestedDonation, promo.discountPercent) : null;
         if (!promo || expectedDonation !== payload.suggestedDonation) {
-          return jsonResponse({ error: "Invalid promo code." }, 400, allowedOrigin);
+          return jsonResponse({ error: "Invalid promo code." }, 400, corsOrigin);
         }
       }
 
@@ -361,7 +386,7 @@ export default {
         return jsonResponse(
           { error: "Captcha validation failed.", details: captchaResult.errorCodes },
           401,
-          allowedOrigin,
+          corsOrigin,
         );
       }
 
@@ -380,16 +405,16 @@ export default {
           redirectUrl: `${url.origin}/r/${signed}`,
         },
         200,
-        allowedOrigin,
+        corsOrigin,
       );
     }
 
     if (url.pathname === "/api/admin-login" && request.method === "POST") {
-      if (origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (!allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
       if (isRateLimited(getRateLimitKey(requestIp))) {
-        return jsonResponse({ error: "Too many requests. Try again later." }, 429, allowedOrigin);
+        return jsonResponse({ error: "Too many requests. Try again later." }, 429, corsOrigin);
       }
 
       const payload = (await request.json()) as {
@@ -410,54 +435,54 @@ export default {
           },
           env.HANDOFF_SECRET,
         );
-        return jsonResponse({ ok: true, token }, 200, allowedOrigin);
+        return jsonResponse({ ok: true, token }, 200, corsOrigin);
       }
 
-      return jsonResponse({ error: "Invalid admin login." }, 401, allowedOrigin);
+      return jsonResponse({ error: "Invalid admin login." }, 401, corsOrigin);
     }
 
     if (url.pathname === "/api/admin/promos" && request.method === "GET") {
-      if (origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (!allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
       if (!(await isAuthorizedAdmin(request, env))) {
-        return jsonResponse({ error: "Admin authorization required." }, 401, allowedOrigin);
+        return jsonResponse({ error: "Admin authorization required." }, 401, corsOrigin);
       }
-      return jsonResponse(await readPromoStore(env), 200, allowedOrigin);
+      return jsonResponse(await readPromoStore(env), 200, corsOrigin);
     }
 
     if (url.pathname === "/api/admin/promos" && request.method === "PUT") {
-      if (origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (!allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
       if (!(await isAuthorizedAdmin(request, env))) {
-        return jsonResponse({ error: "Admin authorization required." }, 401, allowedOrigin);
+        return jsonResponse({ error: "Admin authorization required." }, 401, corsOrigin);
       }
       const store = parsePromoStore(await request.json());
       await env.PROMOS_KV.put("promos", JSON.stringify(store));
-      return jsonResponse(store, 200, allowedOrigin);
+      return jsonResponse(store, 200, corsOrigin);
     }
 
     if (url.pathname === "/api/admin/stock" && request.method === "GET") {
-      if (origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (!allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
       if (!(await isAuthorizedAdmin(request, env))) {
-        return jsonResponse({ error: "Admin authorization required." }, 401, allowedOrigin);
+        return jsonResponse({ error: "Admin authorization required." }, 401, corsOrigin);
       }
-      return jsonResponse(await readStockStore(env), 200, allowedOrigin);
+      return jsonResponse(await readStockStore(env), 200, corsOrigin);
     }
 
     if (url.pathname === "/api/admin/stock" && request.method === "PUT") {
-      if (origin !== allowedOrigin) {
-        return jsonResponse({ error: "Origin not allowed." }, 403, allowedOrigin);
+      if (!allowedOrigins.includes(origin)) {
+        return jsonResponse({ error: "Origin not allowed." }, 403, corsOrigin);
       }
       if (!(await isAuthorizedAdmin(request, env))) {
-        return jsonResponse({ error: "Admin authorization required." }, 401, allowedOrigin);
+        return jsonResponse({ error: "Admin authorization required." }, 401, corsOrigin);
       }
       const store = parseStockStore(await request.json());
       await env.STOCK_KV.put("stock", JSON.stringify(store));
-      return jsonResponse(store, 200, allowedOrigin);
+      return jsonResponse(store, 200, corsOrigin);
     }
 
     if (url.pathname.startsWith("/r/") && request.method === "GET") {
@@ -471,7 +496,7 @@ export default {
         return Response.redirect(env.STRIPE_DONATION_URL, 302);
       }
       return Response.redirect(
-        buildPayPalRedirectUrl(env.PAYPAL_DONATION_URL, env.FRONTEND_ORIGIN),
+        buildPayPalRedirectUrl(env.PAYPAL_DONATION_URL, canonicalOrigin),
         302,
       );
     }

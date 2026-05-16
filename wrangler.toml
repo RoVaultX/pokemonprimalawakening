@@ -2,9 +2,10 @@ name = "rovaultx-gateway"
 main = "worker/index.ts"
 compatibility_date = "2026-04-26"
 
-# Browser origin allowed for CORS (must match your deployed site exactly).
+# Browser origins allowed for CORS (comma-separated). Include apex and www if both are used.
+# First entry is used for PayPal return URLs — set it to your canonical site (usually apex).
 [vars]
-FRONTEND_ORIGIN = "https://rovaultx.github.io"
+FRONTEND_ORIGIN = "https://pokemonprimalawakening.com,https://www.pokemonprimalawakening.com"
 
 [[kv_namespaces]]
 binding = "PROMOS_KV"

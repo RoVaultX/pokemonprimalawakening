@@ -67,7 +67,7 @@ npx wrangler secret put ADMIN_PASSWORD
 
 ### Vars
 
-Edit `[vars]` **FRONTEND_ORIGIN** in `wrangler.toml` (or override in the Cloudflare dashboard) so it equals your live site origin exactly, e.g. `https://pokemonprimalawakening.com`. Required for CORS and PayPal return URLs (`/thank-you`).
+Edit `[vars]` **FRONTEND_ORIGIN** in `wrangler.toml` (or set the same value under the Worker’s **Settings → Variables** in the Cloudflare dashboard). Use a **comma-separated** list of every origin you serve from (scheme + host, no path), e.g. `https://pokemonprimalawakening.com,https://www.pokemonprimalawakening.com`. The **first** entry is used for PayPal return URLs (`/thank-you`). Redeploy the Worker after changing it (`npm run worker:deploy`). CORS allows the browser’s `Origin` when it matches one of these entries.
 
 KV namespace IDs in `wrangler.toml` must match your account; if you create new namespaces:
 
