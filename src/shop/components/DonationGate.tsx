@@ -319,10 +319,6 @@ export function DonationGate({
           Captcha is not configured. Add `VITE_TURNSTILE_SITE_KEY` to enforce verification.
         </p>
       )}
-      <div id="turnstile-widget" />
-      {requiresCaptcha && !turnstileReady && (
-        <p className="helper-text">Loading verification challenge...</p>
-      )}
       <p className="helper-text purchase-summary">
         Choose your payment method then continue with your selected amount:
         {" "}
@@ -339,6 +335,10 @@ export function DonationGate({
         )}
         .
       </p>
+      <div id="turnstile-widget" />
+      {requiresCaptcha && !turnstileReady && (
+        <p className="helper-text">Loading verification challenge...</p>
+      )}
       <div className="promo-card">
         <div>
           <strong className="promo-title">Promo code</strong>
