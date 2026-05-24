@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { FORUM_URL } from "../config/forum";
 import { heroArt } from "../config/heroArt";
 import { homeShowcaseSprites } from "../config/showcaseSprites";
 import { SpriteMarquee } from "../components/SpriteMarquee";
@@ -24,6 +25,9 @@ export function HomePage() {
             <Link to="/about" className="btn btn-secondary">
               About The Project
             </Link>
+            <a href={FORUM_URL} className="btn btn-forum">
+              Community Forum
+            </a>
             <Link to="/shop" className="btn btn-shop">
               RoVaultX Shop
             </Link>
@@ -37,7 +41,8 @@ export function HomePage() {
           <h2>What you will find here</h2>
           <p className="panel-muted">
             Quick links to our <strong>Discord</strong> (codes, events, updates), the official <strong>Roblox community</strong> for
-            group bonuses, the <strong>RoVaultX</strong> support shop, and an <strong>FAQ</strong> for common questions.
+            group bonuses, the <strong>community forum</strong> (guides and applications), the <strong>RoVaultX</strong> support shop,
+            and an <strong>FAQ</strong> for common questions.
           </p>
         </div>
       </section>

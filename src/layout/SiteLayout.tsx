@@ -31,24 +31,42 @@ export function SiteLayout() {
           <nav className="site-nav" aria-label="Primary">
             {siteNavItems
               .filter((item) => item.showInHeader)
-              .map((item) => (
-                <NavLink
-                  key={item.id}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `${navClass({ isActive })}${item.id === "shop" ? " site-nav-link-shop" : ""}`
-                  }
-                  end={item.path === "/home"}
-                >
-                  {item.id === "shop" ? (
+              .map((item) => {
+                const linkClass = `site-nav-link${item.id === "forum" ? " site-nav-link-forum" : ""}${item.id === "shop" ? " site-nav-link-shop" : ""}`;
+                const label =
+                  item.id === "forum" ? (
+                    <>
+                      <span className="forum-pill">Community</span> Forum
+                    </>
+                  ) : item.id === "shop" ? (
                     <>
                       <span className="shop-pill">RoVaultX</span> Shop
                     </>
                   ) : (
                     item.label
-                  )}
-                </NavLink>
-              ))}
+                  );
+
+                if (item.external) {
+                  return (
+                    <a key={item.id} href={item.path} className={linkClass}>
+                      {label}
+                    </a>
+                  );
+                }
+
+                return (
+                  <NavLink
+                    key={item.id}
+                    to={item.path}
+                    className={({ isActive }) =>
+                      `${navClass({ isActive })}${item.id === "forum" ? " site-nav-link-forum" : ""}${item.id === "shop" ? " site-nav-link-shop" : ""}`
+                    }
+                    end={item.path === "/home"}
+                  >
+                    {label}
+                  </NavLink>
+                );
+              })}
           </nav>
         </div>
       </header>
