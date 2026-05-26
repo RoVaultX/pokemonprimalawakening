@@ -75,9 +75,8 @@ export function SiteLayout() {
       </main>
       <footer className="site-footer">
         <p>
-          Pokemon and Pokemon character names are trademarks of Nintendo, Game Freak, and The Pokemon Company.
-          Primal Awakening is a <strong>Pokemon Brick Bronze Reimagination</strong> and is not affiliated with those companies or with Roblox
-          Corporation.
+          Pokemon is a registered trademark of Nintendo, Game Freak, and the Pokemon Company.
+          Primal Awakening is a <strong>Pokemon Brick Bronze Reimagination</strong> powered by Roblox and is not affiliated with Pokemon or with the Roblox Corporation.
         </p>
       </footer>
     </div>
